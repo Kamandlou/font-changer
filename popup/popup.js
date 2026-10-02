@@ -126,16 +126,28 @@ function saveAndNotify() {
   chrome.storage.sync.set(currentSettings, () => {
     updatePreview();
     // Notify active tab content script
-    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-      if (tabs.length > 0 && tabs[0].id) {
-        chrome.tabs.sendMessage(tabs[0].id, {
-          type: 'SETTINGS_UPDATED',
-          settings: currentSettings
-        }).catch(() => {
-          // Ignore error on chrome:// or restricted pages
-        });
-      }
-    });
+    try {
+      chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+        if (chrome.runtime.lastError) return;
+        if (tabs && tabs.length > 0 && tabs[0].id) {
+          try {
+            const p = chrome.tabs.sendMessage(tabs[0].id, {
+              type: 'SETTINGS_UPDATED',
+              settings: currentSettings
+            }, () => {
+              if (chrome.runtime.lastError) { /* ignore */ }
+            });
+            if (p && typeof p.catch === 'function') {
+              p.catch(() => {});
+            }
+          } catch (e) {
+            // Ignore restricted tabs
+          }
+        }
+      });
+    } catch (e) {
+      // Ignore
+    }
   });
 }
 

@@ -38,5 +38,11 @@
       ],
       "matches": ["<all_urls>"]
     }
-  ]
+  ],
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "font-changer@kamandlou.ir",
+      "strict_min_version": "109.0"
+    }
+  }
 }
