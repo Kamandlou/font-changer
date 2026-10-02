@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>تنظیمات فونت</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="container">
+    <!-- Header -->
+    <header class="header">
+      <div class="logo-area">
+        <div class="logo-icon">ف</div>
+        <div>
+          <h1 class="title">تغییر دهنده فونت</h1>
+          <span class="subtitle">Font Changer</span>
+        </div>
+      </div>
+      <label class="switch" title="فعال/غیرفعال‌سازی کلی">
+        <input type="checkbox" id="global-toggle" checked>
+        <span class="slider"></span>
+      </label>
+    </header>
+
+    <!-- Current Site Status Card -->
+    <div class="card site-card" id="site-card">
+      <div class="site-info">
+        <span class="site-label">فعال روی این سایت:</span>
+        <span class="site-host" id="site-host">در حال بررسی...</span>
+      </div>
+      <label class="switch-sm" title="فعال/غیرفعال روی این دامنه">
+        <input type="checkbox" id="site-toggle" checked>
+        <span class="slider-sm"></span>
+      </label>
+    </div>
+
+    <!-- Main Settings -->
+    <div class="card settings-card" id="main-settings">
+      <!-- Font Selection -->
+      <div class="form-group">
+        <label for="font-select" class="form-label">انتخاب فونت:</label>
+        <div class="select-wrapper">
+          <select id="font-select" class="form-select">
+            <option value="vazirmatn-fd">وزیرمتن (اعداد فارسی) - پیشنهادی</option>
+            <option value="vazirmatn">وزیرمتن (اعداد لاتین)</option>
+            <option value="sahel">ساحل (Sahel)</option>
+            <option value="shabnam">شبنم (Shabnam)</option>
+            <option value="tahoma">تاهما (Tahoma)</option>
+            <option value="custom">فونت دلخواه (نصب شده روی سیستم)...</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Custom Font Input (hidden by default) -->
+      <div class="form-group" id="custom-font-group" style="display: none;">
+        <label for="custom-font-input" class="form-label">نام دقیق فونت در سیستم:</label>
+        <input type="text" id="custom-font-input" class="form-input" placeholder="مثلاً: IRANSansX یا Dana">
+      </div>
+
+      <!-- Line Height -->
+      <div class="form-group">
+        <label class="form-label">فاصله بین خطوط (Line-height):</label>
+        <div class="segmented-control" id="line-height-group">
+          <button type="button" class="segment-btn active" data-value="normal">خودکار</button>
+          <button type="button" class="segment-btn" data-value="1.5">۱.۵</button>
+          <button type="button" class="segment-btn" data-value="1.7">۱.۷</button>
+          <button type="button" class="segment-btn" data-value="1.9">۱.۹</button>
+        </div>
+      </div>
+
+      <!-- Preview Box -->
+      <div class="preview-box" id="preview-box">
+        <div class="preview-title">پیش‌نمایش فونت:</div>
+        <p class="preview-text" id="preview-text">
+          این متن نمونه برای نمایش ظاهر فونت است. اعداد فارسی: ۰۱۲۳۴۵۶۷۸۹
+        </p>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="footer">
+      <button type="button" id="reset-btn" class="btn-text">بازنشانی به حالت پیش‌فرض</button>
+      <span class="version">نسخه ۱.۰</span>
+    </footer>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
