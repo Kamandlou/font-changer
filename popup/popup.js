@@ -1,14 +1,10 @@
 /**
  * Font Changer - Popup Script
+ * Pure Site-by-Site Whitelist Mode.
  */
 
 const DEFAULT_SETTINGS = {
-  enabled: true,
-  selectedFont: 'vazirmatn-fd',
-  customFont: '',
-  fontSizeOffset: 0,
-  lineHeight: 'normal',
-  disabledSites: []
+  enabledSites: {} // { "domain.com": { font: "vazirmatn-fd", customFont: "", lineHeight: "normal" } }
 };
 
 const FONT_MAP = {
@@ -19,30 +15,44 @@ const FONT_MAP = {
   'tahoma': `Tahoma, Arial, sans-serif`
 };
 
-let currentSettings = { ...DEFAULT_SETTINGS };
+const FONT_LABELS = {
+  'vazirmatn-fd': 'وزیرمتن فارسی',
+  'vazirmatn': 'وزیرمتن لاتین',
+  'sahel': 'ساحل',
+  'shabnam': 'شبنم',
+  'tahoma': 'تاهما',
+  'custom': 'دلخواه'
+};
+
+let enabledSites = {};
 let currentHostname = '';
 
 // DOM Elements
-const globalToggle = document.getElementById('global-toggle');
 const siteCard = document.getElementById('site-card');
 const siteHost = document.getElementById('site-host');
 const siteToggle = document.getElementById('site-toggle');
+const siteStatusHint = document.getElementById('site-status-hint');
 const mainSettings = document.getElementById('main-settings');
 const fontSelect = document.getElementById('font-select');
 const customFontGroup = document.getElementById('custom-font-group');
 const customFontInput = document.getElementById('custom-font-input');
 const lineHeightBtns = document.querySelectorAll('.segment-btn');
 const previewText = document.getElementById('preview-text');
+const sitesListCount = document.getElementById('sites-list-count');
+const sitesUl = document.getElementById('sites-ul');
+const sitesEmpty = document.getElementById('sites-empty');
+const toggleSitesList = document.getElementById('toggle-sites-list');
+const sitesListContent = document.getElementById('sites-list-content');
+const sitesChevron = document.getElementById('sites-chevron');
 const resetBtn = document.getElementById('reset-btn');
 
 async function init() {
-  // 1. Get current active tab
+  // 1. Identify current active tab domain
   try {
     const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
     if (tabs.length > 0 && tabs[0].url) {
       try {
         const url = new URL(tabs[0].url);
-        // Only http/https supported
         if (url.protocol.startsWith('http')) {
           currentHostname = url.hostname.toLowerCase();
           siteHost.textContent = currentHostname;
@@ -59,9 +69,20 @@ async function init() {
     siteCard.style.display = 'none';
   }
 
-  // 2. Load settings from storage
-  chrome.storage.sync.get(DEFAULT_SETTINGS, (items) => {
-    currentSettings = { ...DEFAULT_SETTINGS, ...items };
+  // 2. Load enabledSites from storage
+  chrome.storage.sync.get(['enabledSites'], (items) => {
+    let sites = items.enabledSites;
+    if (!sites || typeof sites !== 'object') {
+      enabledSites = {};
+    } else if (Array.isArray(sites)) {
+      enabledSites = {};
+      sites.forEach(d => {
+        if (d) enabledSites[d.toLowerCase()] = { font: 'vazirmatn-fd', lineHeight: 'normal' };
+      });
+    } else {
+      enabledSites = { ...sites };
+    }
+
     renderUI();
   });
 
@@ -69,61 +90,109 @@ async function init() {
   bindEvents();
 }
 
-function renderUI() {
-  // Global toggle
-  globalToggle.checked = currentSettings.enabled;
-  updateGlobalState(currentSettings.enabled);
+function getSelectedLineHeight() {
+  const activeBtn = document.querySelector('.segment-btn.active');
+  return activeBtn ? activeBtn.dataset.value : 'normal';
+}
 
-  // Site toggle
-  if (currentHostname) {
-    const isSiteDisabled = currentSettings.disabledSites.some(
-      (s) => s.toLowerCase() === currentHostname || currentHostname.endsWith('.' + s.toLowerCase())
-    );
-    siteToggle.checked = !isSiteDisabled;
-  }
-
-  // Font select
-  fontSelect.value = currentSettings.selectedFont || 'vazirmatn-fd';
-  if (fontSelect.value === 'custom') {
-    customFontGroup.style.display = 'block';
-  } else {
-    customFontGroup.style.display = 'none';
-  }
-  customFontInput.value = currentSettings.customFont || '';
-
-  // Line height
+function setSelectedLineHeight(val) {
   lineHeightBtns.forEach((btn) => {
-    if (btn.dataset.value === currentSettings.lineHeight) {
+    if (btn.dataset.value === (val || 'normal')) {
       btn.classList.add('active');
     } else {
       btn.classList.remove('active');
     }
   });
-
-  updatePreview();
 }
 
-function updateGlobalState(isEnabled) {
-  if (isEnabled) {
-    mainSettings.classList.remove('disabled-overlay');
-    siteCard.classList.remove('disabled-overlay');
+function renderUI() {
+  const isSiteActive = !!(currentHostname && enabledSites[currentHostname]);
+  siteToggle.checked = isSiteActive;
+
+  if (isSiteActive) {
+    const config = enabledSites[currentHostname] || {};
+    fontSelect.value = config.font || 'vazirmatn-fd';
+    customFontInput.value = config.customFont || '';
+    setSelectedLineHeight(config.lineHeight || 'normal');
+
+    siteCard.classList.add('active-site');
+    const label = FONT_LABELS[config.font] || config.customFont || 'وزیرمتن';
+    siteStatusHint.textContent = `فونت این سایت به «${label}» تغییر یافته است`;
+    siteStatusHint.classList.add('active');
   } else {
-    mainSettings.classList.add('disabled-overlay');
-    siteCard.classList.add('disabled-overlay');
+    siteCard.classList.remove('active-site');
+    siteStatusHint.textContent = 'فونت این سایت تغییر نمی‌کند (پیش‌فرض)';
+    siteStatusHint.classList.remove('active');
   }
+
+  // Custom font field
+  customFontGroup.style.display = fontSelect.value === 'custom' ? 'block' : 'none';
+
+  updatePreview();
+  renderSitesList();
 }
 
 function updatePreview() {
-  let font = FONT_MAP[currentSettings.selectedFont] || FONT_MAP['vazirmatn-fd'];
-  if (currentSettings.selectedFont === 'custom' && currentSettings.customFont.trim()) {
-    font = `'${currentSettings.customFont.trim()}', sans-serif`;
+  const selectedFont = fontSelect.value;
+  let font = FONT_MAP[selectedFont] || FONT_MAP['vazirmatn-fd'];
+  if (selectedFont === 'custom' && customFontInput.value.trim()) {
+    font = `'${customFontInput.value.trim()}', sans-serif`;
   }
+  const lh = getSelectedLineHeight();
   previewText.style.fontFamily = font;
-  previewText.style.lineHeight = currentSettings.lineHeight === 'normal' ? '1.6' : currentSettings.lineHeight;
+  previewText.style.lineHeight = lh === 'normal' ? '1.6' : lh;
+}
+
+function renderSitesList() {
+  const domains = Object.keys(enabledSites);
+  sitesListCount.textContent = `سایت‌های فعال شده (${domains.length})`;
+
+  sitesUl.innerHTML = '';
+  if (domains.length === 0) {
+    sitesEmpty.style.display = 'block';
+    sitesUl.style.display = 'none';
+  } else {
+    sitesEmpty.style.display = 'none';
+    sitesUl.style.display = 'flex';
+
+    domains.forEach(domain => {
+      const config = enabledSites[domain] || {};
+      const fontLabel = FONT_LABELS[config.font] || config.customFont || 'وزیرمتن';
+
+      const li = document.createElement('li');
+      li.className = 'site-item';
+      li.innerHTML = `
+        <div class="site-item-info">
+          <span class="site-item-domain" title="${domain}">${domain}</span>
+          <span class="site-item-font">${fontLabel}</span>
+        </div>
+        <button type="button" class="site-delete-btn" data-domain="${domain}" title="حذف از سایت‌های فعال">✕</button>
+      `;
+      sitesUl.appendChild(li);
+    });
+
+    // Delete buttons
+    sitesUl.querySelectorAll('.site-delete-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const domainToDelete = e.currentTarget.dataset.domain;
+        delete enabledSites[domainToDelete];
+
+        if (domainToDelete === currentHostname) {
+          siteToggle.checked = false;
+          siteCard.classList.remove('active-site');
+          siteStatusHint.textContent = 'فونت این سایت تغییر نمی‌کند (پیش‌فرض)';
+          siteStatusHint.classList.remove('active');
+        }
+
+        saveAndNotify();
+        renderSitesList();
+      });
+    });
+  }
 }
 
 function saveAndNotify() {
-  chrome.storage.sync.set(currentSettings, () => {
+  chrome.storage.sync.set({ enabledSites: enabledSites }, () => {
     updatePreview();
     // Notify active tab content script
     try {
@@ -133,7 +202,7 @@ function saveAndNotify() {
           try {
             const p = chrome.tabs.sendMessage(tabs[0].id, {
               type: 'SETTINGS_UPDATED',
-              settings: currentSettings
+              settings: { enabledSites: enabledSites }
             }, () => {
               if (chrome.runtime.lastError) { /* ignore */ }
             });
@@ -152,39 +221,49 @@ function saveAndNotify() {
 }
 
 function bindEvents() {
-  // Global Switch
-  globalToggle.addEventListener('change', () => {
-    currentSettings.enabled = globalToggle.checked;
-    updateGlobalState(currentSettings.enabled);
-    saveAndNotify();
-  });
-
-  // Current Site Switch
+  // Site Toggle (Hero Switch)
   siteToggle.addEventListener('change', () => {
     if (!currentHostname) return;
-    const isEnabledForSite = siteToggle.checked;
-    const list = new Set(currentSettings.disabledSites || []);
 
-    if (isEnabledForSite) {
-      list.delete(currentHostname);
+    if (siteToggle.checked) {
+      // Enable font for this site
+      enabledSites[currentHostname] = {
+        font: fontSelect.value,
+        customFont: customFontInput.value.trim(),
+        lineHeight: getSelectedLineHeight()
+      };
+      siteCard.classList.add('active-site');
+      const label = FONT_LABELS[fontSelect.value] || 'وزیرمتن';
+      siteStatusHint.textContent = `فونت این سایت به «${label}» تغییر یافته است`;
+      siteStatusHint.classList.add('active');
     } else {
-      list.add(currentHostname);
+      // Disable font for this site
+      delete enabledSites[currentHostname];
+      siteCard.classList.remove('active-site');
+      siteStatusHint.textContent = 'فونت این سایت تغییر نمی‌کند (پیش‌فرض)';
+      siteStatusHint.classList.remove('active');
     }
 
-    currentSettings.disabledSites = Array.from(list);
     saveAndNotify();
+    renderSitesList();
   });
 
   // Font Selection
   fontSelect.addEventListener('change', () => {
-    currentSettings.selectedFont = fontSelect.value;
-    if (fontSelect.value === 'custom') {
-      customFontGroup.style.display = 'block';
-      customFontInput.focus();
+    const isCustom = fontSelect.value === 'custom';
+    customFontGroup.style.display = isCustom ? 'block' : 'none';
+    if (isCustom) customFontInput.focus();
+
+    // If site is currently active, update its config and live notify
+    if (siteToggle.checked && currentHostname) {
+      enabledSites[currentHostname].font = fontSelect.value;
+      const label = FONT_LABELS[fontSelect.value] || 'وزیرمتن';
+      siteStatusHint.textContent = `فونت این سایت به «${label}» تغییر یافته است`;
+      renderSitesList();
+      saveAndNotify();
     } else {
-      customFontGroup.style.display = 'none';
+      updatePreview();
     }
-    saveAndNotify();
   });
 
   // Custom Font Input
@@ -192,8 +271,13 @@ function bindEvents() {
   customFontInput.addEventListener('input', () => {
     clearTimeout(customFontDebounce);
     customFontDebounce = setTimeout(() => {
-      currentSettings.customFont = customFontInput.value.trim();
-      saveAndNotify();
+      if (siteToggle.checked && currentHostname) {
+        enabledSites[currentHostname].customFont = customFontInput.value.trim();
+        renderSitesList();
+        saveAndNotify();
+      } else {
+        updatePreview();
+      }
     }, 300);
   });
 
@@ -202,16 +286,30 @@ function bindEvents() {
     btn.addEventListener('click', () => {
       lineHeightBtns.forEach((b) => b.classList.remove('active'));
       btn.classList.add('active');
-      currentSettings.lineHeight = btn.dataset.value;
-      saveAndNotify();
+
+      if (siteToggle.checked && currentHostname) {
+        enabledSites[currentHostname].lineHeight = btn.dataset.value;
+        saveAndNotify();
+      } else {
+        updatePreview();
+      }
     });
   });
 
-  // Reset to default
+  // Accordion Toggle
+  toggleSitesList.addEventListener('click', () => {
+    const isHidden = sitesListContent.style.display === 'none';
+    sitesListContent.style.display = isHidden ? 'block' : 'none';
+    sitesChevron.classList.toggle('collapsed', !isHidden);
+  });
+
+  // Reset Button
   resetBtn.addEventListener('click', () => {
-    currentSettings = { ...DEFAULT_SETTINGS, disabledSites: [] };
-    renderUI();
-    saveAndNotify();
+    if (confirm('آیا از پاک کردن تمامی سایت‌های فعال اطمینان دارید؟ فونت همه سایت‌ها به حالت عادی برمی‌گردد.')) {
+      enabledSites = {};
+      renderUI();
+      saveAndNotify();
+    }
   });
 }
 

@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Font Changer | تغییر دهنده فونت",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "تغییر سریع و زیبای فونت تمام صفحات وب به وزیرمتن و سایر فونت‌های فارسی دلخواه",
   "icons": {
     "16": "icons/icon16.png",
@@ -42,7 +42,10 @@
   "browser_specific_settings": {
     "gecko": {
       "id": "font-changer@kamandlou.ir",
-      "strict_min_version": "109.0"
+      "strict_min_version": "109.0",
+      "data_collection_permissions": {
+        "required": ["none"]
+      }
     }
   }
 }

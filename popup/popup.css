@@ -23,6 +23,8 @@
   --primary: #4f46e5;
   --primary-hover: #4338ca;
   --primary-light: #eef2ff;
+  --success: #10b981;
+  --success-bg: #ecfdf5;
   --bg: #f8fafc;
   --card-bg: #ffffff;
   --text-main: #0f172a;
@@ -40,7 +42,7 @@
 }
 
 body {
-  width: 350px;
+  width: 360px;
   background-color: var(--bg);
   font-family: 'Vazirmatn FD', 'Vazirmatn', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   color: var(--text-main);
@@ -60,7 +62,7 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding-bottom: 4px;
+  padding-bottom: 2px;
 }
 
 .logo-area {
@@ -90,7 +92,7 @@ body {
 }
 
 .subtitle {
-  font-size: 11px;
+  font-size: 10.5px;
   color: var(--text-muted);
   display: block;
 }
@@ -107,11 +109,22 @@ body {
 /* Site Toggle Card */
 .site-card {
   display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: #f8fafc;
+  border-color: #cbd5e1;
+  transition: all 0.2s ease;
+}
+
+.site-card.active-site {
+  background: #f5f3ff;
+  border-color: #c7d2fe;
+}
+
+.site-header-row {
+  display: flex;
   align-items: center;
   justify-content: space-between;
-  background: #f1f5f9;
-  border-color: #cbd5e1;
-  padding: 10px 14px;
 }
 
 .site-info {
@@ -126,8 +139,8 @@ body {
 }
 
 .site-host {
-  font-size: 13px;
-  font-weight: 600;
+  font-size: 13.5px;
+  font-weight: 700;
   color: var(--text-main);
   max-width: 220px;
   overflow: hidden;
@@ -135,6 +148,21 @@ body {
   white-space: nowrap;
   direction: ltr;
   text-align: right;
+}
+
+.site-status-hint {
+  font-size: 11.5px;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding-top: 4px;
+  border-top: 1px dashed var(--border);
+}
+
+.site-status-hint.active {
+  color: #4338ca;
+  font-weight: 600;
 }
 
 /* Form controls */
@@ -162,7 +190,7 @@ body {
   width: 100%;
   padding: 8px 12px;
   font-family: inherit;
-  font-size: 13px;
+  font-size: 12.5px;
   color: var(--text-main);
   background-color: #fff;
   border: 1px solid var(--border);
@@ -230,7 +258,105 @@ body {
   line-height: 1.6;
 }
 
-/* Toggle Switch */
+/* Sites List Card */
+.sites-list-card {
+  padding: 10px 14px;
+}
+
+.sites-list-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+}
+
+.sites-list-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-main);
+}
+
+.chevron {
+  font-size: 12px;
+  color: var(--text-muted);
+  transition: transform 0.2s ease;
+}
+
+.chevron.collapsed {
+  transform: rotate(90deg);
+}
+
+.sites-list-content {
+  margin-top: 10px;
+  max-height: 140px;
+  overflow-y: auto;
+}
+
+.sites-ul {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.site-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #f8fafc;
+  border: 1px solid var(--border);
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+}
+
+.site-item-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 260px;
+  overflow: hidden;
+}
+
+.site-item-domain {
+  font-weight: 600;
+  direction: ltr;
+  text-overflow: ellipsis;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.site-item-font {
+  font-size: 10px;
+  color: var(--primary);
+  background: var(--primary-light);
+  padding: 2px 6px;
+  border-radius: 4px;
+  white-space: nowrap;
+}
+
+.site-delete-btn {
+  background: none;
+  border: none;
+  color: #94a3b8;
+  cursor: pointer;
+  font-size: 15px;
+  padding: 0 4px;
+  line-height: 1;
+}
+
+.site-delete-btn:hover {
+  color: #ef4444;
+}
+
+.sites-empty {
+  font-size: 11.5px;
+  color: var(--text-muted);
+  text-align: center;
+  padding: 8px 0;
+}
+
+/* Switches */
 .switch {
   position: relative;
   display: inline-block;
@@ -277,12 +403,11 @@ input:checked + .slider:before {
   transform: translateX(20px);
 }
 
-/* Small Switch */
 .switch-sm {
   position: relative;
   display: inline-block;
-  width: 36px;
-  height: 20px;
+  width: 38px;
+  height: 22px;
 }
 
 .switch-sm input {
@@ -300,14 +425,14 @@ input:checked + .slider:before {
   bottom: 0;
   background-color: #cbd5e1;
   transition: .3s;
-  border-radius: 20px;
+  border-radius: 22px;
 }
 
 .slider-sm:before {
   position: absolute;
   content: "";
-  height: 14px;
-  width: 14px;
+  height: 16px;
+  width: 16px;
   left: 3px;
   bottom: 3px;
   background-color: white;
@@ -351,7 +476,7 @@ input:checked + .slider-sm:before {
   color: #94a3b8;
 }
 
-/* Disabled state when global switch is off */
+/* Disabled state */
 .disabled-overlay {
   opacity: 0.45;
   pointer-events: none;

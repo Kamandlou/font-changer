@@ -1,6 +1,6 @@
 /**
  * Font Changer - Content Script
- * Applies selected font (e.g. Vazirmatn) cleanly to web pages.
+ * Opt-in / Whitelist mode: Only applies font to user-specified websites.
  */
 
 (function () {
@@ -8,14 +8,9 @@
 
   const DEFAULT_SETTINGS = {
     enabled: true,
-    selectedFont: 'vazirmatn-fd',
-    customFont: '',
-    fontSizeOffset: 0,
-    lineHeight: 'normal',
-    disabledSites: []
+    enabledSites: {} // { "domain.com": { font: "vazirmatn-fd", customFont: "", lineHeight: "normal" } }
   };
 
-  // Font definitions mapped to font-family strings
   const FONT_FAMILIES = {
     'vazirmatn-fd': `'Vazirmatn FD', 'Vazirmatn', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Tahoma, sans-serif`,
     'vazirmatn': `'Vazirmatn', 'Vazirmatn FD', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Tahoma, sans-serif`,
@@ -70,23 +65,26 @@
     `;
   }
 
-  function getFontFamilyRule(settings) {
-    if (settings.selectedFont === 'custom' && settings.customFont.trim()) {
-      return `'${settings.customFont.trim()}', 'Vazirmatn FD', -apple-system, sans-serif`;
+  function getFontFamilyRule(fontKey, customFont) {
+    if (fontKey === 'custom' && customFont && customFont.trim()) {
+      return `'${customFont.trim()}', 'Vazirmatn FD', -apple-system, sans-serif`;
     }
-    return FONT_FAMILIES[settings.selectedFont] || FONT_FAMILIES['vazirmatn-fd'];
+    return FONT_FAMILIES[fontKey] || FONT_FAMILIES['vazirmatn-fd'];
   }
 
-  function generateCSS(settings) {
-    const fontFamily = getFontFamilyRule(settings);
+  function generateCSS(siteConfig) {
+    const fontKey = siteConfig.font || 'vazirmatn-fd';
+    const customFont = siteConfig.customFont || '';
+    const lineHeight = siteConfig.lineHeight || 'normal';
+
+    const fontFamily = getFontFamilyRule(fontKey, customFont);
     const fontFaces = getFontFacesCSS();
 
     let extraRules = '';
-    if (settings.lineHeight && settings.lineHeight !== 'normal') {
-      extraRules += `line-height: ${settings.lineHeight} !important;`;
+    if (lineHeight && lineHeight !== 'normal') {
+      extraRules += `line-height: ${lineHeight} !important;`;
     }
 
-    // High specificity rules while strictly exempting code blocks & icons
     return `
       ${fontFaces}
 
@@ -94,7 +92,7 @@
         font-family: ${fontFamily} !important;
       }
 
-      /* Apply font to elements with high specificity */
+      /* Apply font to general elements */
       html body,
       html body p, html body h1, html body h2, html body h3, html body h4, html body h5, html body h6,
       html body span, html body a, html body li, html body ul, html body ol, html body dl, html body dt, html body dd,
@@ -125,27 +123,37 @@
     `;
   }
 
-  function isSiteDisabled(disabledSites) {
-    if (!Array.isArray(disabledSites)) return false;
+  function getSiteConfig(enabledSites) {
+    if (!enabledSites || typeof enabledSites !== 'object') return null;
     const currentHost = window.location.hostname.toLowerCase();
-    return disabledSites.some(site => {
-      const s = site.toLowerCase().trim();
-      return s && (currentHost === s || currentHost.endsWith('.' + s));
-    });
+    if (!currentHost) return null;
+
+    // Object format: { "hostname": { font, lineHeight, customFont } }
+    for (const domain of Object.keys(enabledSites)) {
+      const d = domain.toLowerCase().trim();
+      if (!d) continue;
+      if (currentHost === d || currentHost.endsWith('.' + d)) {
+        return enabledSites[domain] || { font: 'vazirmatn-fd', lineHeight: 'normal' };
+      }
+    }
+
+    return null;
   }
 
   function applySettings(settings) {
-    const shouldDisable = !settings.enabled || isSiteDisabled(settings.disabledSites);
     const existingStyle = document.getElementById(STYLE_ID);
+    const siteConfig = getSiteConfig(settings ? settings.enabledSites : null);
 
-    if (shouldDisable) {
+    // If NOT enabled for this site, guarantee NO font style is applied
+    if (!siteConfig) {
       if (existingStyle) {
         existingStyle.remove();
       }
       return;
     }
 
-    const css = generateCSS(settings);
+    // Site IS enabled -> inject or update custom font CSS
+    const css = generateCSS(siteConfig);
     let style = existingStyle;
 
     if (!style) {
@@ -167,12 +175,12 @@
     style.textContent = css;
   }
 
-  // Load initial settings
+  // Initial load
   chrome.storage.sync.get(DEFAULT_SETTINGS, function (items) {
     applySettings(items);
   });
 
-  // Listen for storage changes (updates all open tabs automatically)
+  // Storage listener for live multi-tab sync
   chrome.storage.onChanged.addListener(function (changes, area) {
     if (area === 'sync') {
       chrome.storage.sync.get(DEFAULT_SETTINGS, function (items) {
@@ -181,7 +189,7 @@
     }
   });
 
-  // Listen for direct runtime messages
+  // Direct message listener
   chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
     if (message.type === 'SETTINGS_UPDATED') {
       applySettings(message.settings);

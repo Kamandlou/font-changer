@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>تنظیمات فونت</title>
+  <title>تغییر دهنده فونت</title>
   <link rel="stylesheet" href="popup.css">
 </head>
 <body>
@@ -17,29 +17,30 @@
           <span class="subtitle">Font Changer</span>
         </div>
       </div>
-      <label class="switch" title="فعال/غیرفعال‌سازی کلی">
-        <input type="checkbox" id="global-toggle" checked>
-        <span class="slider"></span>
-      </label>
     </header>
 
-    <!-- Current Site Status Card -->
+    <!-- Main Hero: Site Toggle Card -->
     <div class="card site-card" id="site-card">
-      <div class="site-info">
-        <span class="site-label">فعال روی این سایت:</span>
-        <span class="site-host" id="site-host">در حال بررسی...</span>
+      <div class="site-header-row">
+        <div class="site-info">
+          <span class="site-label">سایت فعلی:</span>
+          <span class="site-host" id="site-host">در حال بررسی...</span>
+        </div>
+        <label class="switch" title="فعال/غیرفعال‌سازی تغییر فونت روی این سایت">
+          <input type="checkbox" id="site-toggle">
+          <span class="slider"></span>
+        </label>
       </div>
-      <label class="switch-sm" title="فعال/غیرفعال روی این دامنه">
-        <input type="checkbox" id="site-toggle" checked>
-        <span class="slider-sm"></span>
-      </label>
+      <div class="site-status-hint" id="site-status-hint">
+        فونت این سایت تغییر نمی‌کند (پیش‌فرض)
+      </div>
     </div>
 
-    <!-- Main Settings -->
+    <!-- Font Settings Card -->
     <div class="card settings-card" id="main-settings">
       <!-- Font Selection -->
       <div class="form-group">
-        <label for="font-select" class="form-label">انتخاب فونت:</label>
+        <label for="font-select" class="form-label">انتخاب فونت برای این سایت:</label>
         <div class="select-wrapper">
           <select id="font-select" class="form-select">
             <option value="vazirmatn-fd">وزیرمتن (اعداد فارسی) - پیشنهادی</option>
@@ -52,7 +53,7 @@
         </div>
       </div>
 
-      <!-- Custom Font Input (hidden by default) -->
+      <!-- Custom Font Input -->
       <div class="form-group" id="custom-font-group" style="display: none;">
         <label for="custom-font-input" class="form-label">نام دقیق فونت در سیستم:</label>
         <input type="text" id="custom-font-input" class="form-input" placeholder="مثلاً: IRANSansX یا Dana">
@@ -69,7 +70,7 @@
         </div>
       </div>
 
-      <!-- Preview Box -->
+      <!-- Live Preview Box -->
       <div class="preview-box" id="preview-box">
         <div class="preview-title">پیش‌نمایش فونت:</div>
         <p class="preview-text" id="preview-text">
@@ -78,10 +79,26 @@
       </div>
     </div>
 
+    <!-- Enabled Sites List -->
+    <div class="card sites-list-card">
+      <div class="sites-list-header" id="toggle-sites-list">
+        <span class="sites-list-title" id="sites-list-count">سایت‌های فعال شده (۰)</span>
+        <span class="chevron" id="sites-chevron">▾</span>
+      </div>
+      <div class="sites-list-content" id="sites-list-content">
+        <ul class="sites-ul" id="sites-ul">
+          <!-- Populated by JS -->
+        </ul>
+        <div class="sites-empty" id="sites-empty">
+          هنوز هیچ سایتی فعال نشده است.
+        </div>
+      </div>
+    </div>
+
     <!-- Footer -->
     <footer class="footer">
-      <button type="button" id="reset-btn" class="btn-text">بازنشانی به حالت پیش‌فرض</button>
-      <span class="version">نسخه ۱.۰</span>
+      <button type="button" id="reset-btn" class="btn-text">پاک‌سازی همه سایت‌های فعال</button>
+      <span class="version">نسخه ۱.۱</span>
     </footer>
   </div>
 
