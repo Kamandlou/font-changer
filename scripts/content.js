@@ -1,13 +1,13 @@
 /**
  * Font Changer - Content Script
- * Opt-in / Whitelist mode: Only applies font to user-specified websites.
+ * Robust Whitelist Mode with Complete Icon Protection for Google Gemini, Docs, etc.
  */
 
 (function () {
   const STYLE_ID = '__persian_font_changer_style__';
+  let observer = null;
 
   const DEFAULT_SETTINGS = {
-    enabled: true,
     enabledSites: {} // { "domain.com": { font: "vazirmatn-fd", customFont: "", lineHeight: "normal" } }
   };
 
@@ -82,45 +82,153 @@
 
     let extraRules = '';
     if (lineHeight && lineHeight !== 'normal') {
-      extraRules += `line-height: ${lineHeight} !important;`;
+      extraRules = `line-height: ${lineHeight} !important;`;
     }
 
     return `
       ${fontFaces}
 
+      /* 1. Default cascade font for page (without !important on body so class-based icons win) */
       :root, html, body {
-        font-family: ${fontFamily} !important;
+        font-family: ${fontFamily};
       }
 
-      /* Apply font to general elements */
-      html body,
-      html body p, html body h1, html body h2, html body h3, html body h4, html body h5, html body h6,
-      html body span, html body a, html body li, html body ul, html body ol, html body dl, html body dt, html body dd,
-      html body input, html body textarea, html body select, html body button,
-      html body label, html body table, html body th, html body td, html body caption,
-      html body blockquote, html body q, html body cite, html body b, html body strong, html body small, html body em,
-      html body header, html body footer, html body nav, html body section, html body article, html body aside, html body main,
-      html body div:not([class*="icon"]):not([class*="fa-"]):not([class*="fa"]):not([class*="material-"]):not([class*="codicon"]) {
+      /* 2. Text elements with !important for full override */
+      p, h1, h2, h3, h4, h5, h6,
+      li, ul, ol, dl, dt, dd,
+      input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]),
+      textarea, select,
+      label, table, th, td, caption,
+      blockquote, q, cite, b, strong, small, em,
+      article, section, main {
         font-family: ${fontFamily} !important;
         ${extraRules}
       }
 
-      /* Protect code blocks, terminals, and monospace text */
+      /* 3. Selective span & a override (strictly exempting icon elements) */
+      span:not([class*="symbol"]):not([class*="icon"]):not([class*="Icon"]):not([class*="fa-"]):not(.fa):not(.notranslate):not([aria-hidden="true"]):not([data-icon]),
+      a:not([class*="symbol"]):not([class*="icon"]):not([class*="Icon"]):not([class*="fa-"]):not(.fa):not(.notranslate):not([aria-hidden="true"]) {
+        font-family: ${fontFamily} !important;
+      }
+
+      /* 4. Restore and protect Google Symbols & Material Icons (Gemini, Google Docs, etc.) */
+      mat-icon, mat-icon *,
+      google-symbols, google-symbols *,
+      gm-icon, gm-icon *,
+      .google-symbols, .google-symbols *,
+      .material-symbols-outlined, .material-symbols-outlined *,
+      .material-symbols-rounded, .material-symbols-rounded *,
+      .material-symbols-sharp, .material-symbols-sharp *,
+      .material-icons, .material-icons *,
+      [class*="google-symbols"], [class*="google-symbols"] *,
+      [class*="material-symbols"], [class*="material-symbols"] *,
+      [class*="material-icons"], [class*="material-icons"] *,
+      [class*="mat-icon"], [class*="mat-icon"] *,
+      .notranslate[class*="symbol"],
+      .notranslate[class*="icon"],
+      [data-font-changer-exempt],
+      [data-font-changer-exempt] * {
+        font-family: 'Google Symbols', 'Material Symbols Outlined', 'Material Symbols Rounded', 'Material Symbols Sharp', 'Material Icons' !important;
+        letter-spacing: normal !important;
+        white-space: nowrap !important;
+        word-wrap: normal !important;
+        direction: ltr !important;
+        -webkit-font-smoothing: antialiased !important;
+        text-rendering: optimizeLegibility !important;
+      }
+
+      /* 5. Protect FontAwesome icon fonts */
+      .fa, .fas, .far, .fal, .fab, .fad,
+      [class*="fa-"], [class*="fa-"] * {
+        font-family: "Font Awesome 6 Free", "Font Awesome 5 Free", "FontAwesome" !important;
+      }
+
+      /* 6. Protect developer code blocks, terminals, and monospace text */
       pre, code, kbd, samp, tt,
       pre *, code *, kbd *, samp *,
-      .monaco-editor, .ace_editor, .CodeMirror {
+      .monaco-editor, .monaco-editor *,
+      .ace_editor, .ace_editor *,
+      .CodeMirror, .CodeMirror * {
         font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace !important;
       }
 
-      /* Protect icon fonts, glyphs, and svg icons */
-      [class*="icon"], [class*="fa-"], [class*="fa"],
-      .fa, .fas, .far, .fal, .fab, .fad,
-      .material-icons, [class*="material-symbols"],
-      .octicon, .codicon, .bi, .feather,
-      [data-icon], svg, svg * {
+      /* 7. Protect SVGs and generic icon fonts */
+      [data-icon], svg, svg *,
+      .octicon, .octicon *,
+      .codicon, .codicon *,
+      .bi, .feather {
         font-family: inherit !important;
       }
     `;
+  }
+
+  // Dynamic icon protector for apps like Google Gemini
+  function protectPageIcons(root = document) {
+    if (!root || !root.querySelectorAll) return;
+
+    const iconSelector = [
+      'mat-icon',
+      'google-symbols',
+      'gm-icon',
+      '.google-symbols',
+      '.material-symbols-outlined',
+      '.material-symbols-rounded',
+      '.material-symbols-sharp',
+      '.material-icons',
+      '[class*="google-symbols"]',
+      '[class*="material-symbols"]',
+      '[class*="material-icons"]',
+      '[class*="mat-icon"]',
+      'span.notranslate[aria-hidden="true"]',
+      '[data-icon]'
+    ].join(',');
+
+    try {
+      const icons = root.querySelectorAll(iconSelector);
+      for (let i = 0; i < icons.length; i++) {
+        const el = icons[i];
+        el.setAttribute('data-font-changer-exempt', 'true');
+        el.style.setProperty('font-family', "'Google Symbols', 'Material Symbols Outlined', 'Material Icons', inherit", 'important');
+      }
+    } catch (e) {
+      // Ignore
+    }
+  }
+
+  function startIconObserver() {
+    if (observer) observer.disconnect();
+
+    protectPageIcons(document);
+
+    observer = new MutationObserver(mutations => {
+      for (const m of mutations) {
+        if (m.addedNodes && m.addedNodes.length > 0) {
+          for (const node of m.addedNodes) {
+            if (node.nodeType === 1) { // Element node
+              protectPageIcons(node);
+            }
+          }
+        }
+      }
+    });
+
+    observer.observe(document.body || document.documentElement, {
+      childList: true,
+      subtree: true
+    });
+  }
+
+  function stopIconObserver() {
+    if (observer) {
+      observer.disconnect();
+      observer = null;
+    }
+    // Remove custom attributes & styles
+    const exempts = document.querySelectorAll('[data-font-changer-exempt]');
+    exempts.forEach(el => {
+      el.removeAttribute('data-font-changer-exempt');
+      el.style.removeProperty('font-family');
+    });
   }
 
   function getSiteConfig(enabledSites) {
@@ -128,7 +236,7 @@
     const currentHost = window.location.hostname.toLowerCase();
     if (!currentHost) return null;
 
-    // Object format: { "hostname": { font, lineHeight, customFont } }
+    // Check direct match or subdomain match
     for (const domain of Object.keys(enabledSites)) {
       const d = domain.toLowerCase().trim();
       if (!d) continue;
@@ -144,15 +252,16 @@
     const existingStyle = document.getElementById(STYLE_ID);
     const siteConfig = getSiteConfig(settings ? settings.enabledSites : null);
 
-    // If NOT enabled for this site, guarantee NO font style is applied
+    // If NOT enabled for this site, clean up and exit
     if (!siteConfig) {
       if (existingStyle) {
         existingStyle.remove();
       }
+      stopIconObserver();
       return;
     }
 
-    // Site IS enabled -> inject or update custom font CSS
+    // Site IS enabled -> inject CSS & start icon protection
     const css = generateCSS(siteConfig);
     let style = existingStyle;
 
@@ -173,6 +282,13 @@
     }
 
     style.textContent = css;
+
+    // Start live protector for Google Symbols and dynamic UI
+    if (document.body) {
+      startIconObserver();
+    } else {
+      document.addEventListener('DOMContentLoaded', startIconObserver, { once: true });
+    }
   }
 
   // Initial load
@@ -189,7 +305,7 @@
     }
   });
 
-  // Direct message listener
+  // Direct message listener from popup
   chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
     if (message.type === 'SETTINGS_UPDATED') {
       applySettings(message.settings);
